@@ -1,8 +1,9 @@
 import { projects, type Project } from '../../data/projects'
 import { useReveal } from '../../hooks/useReveal'
+import { BuildReplay } from '../ui/BuildReplay'
 import { SectionHeader } from '../ui/SectionHeader'
 
-function LoomCard({ project }: { project: Project }) {
+function LoomCard({ project, index }: { project: Project; index: number }) {
   const embed = project.loomUrl?.replace('/share/', '/embed/')
   return (
     <article data-reveal className="glass-card overflow-hidden rounded-2xl">
@@ -16,19 +17,8 @@ function LoomCard({ project }: { project: Project }) {
           />
         </div>
       ) : (
-        // Placeholder until a real Loom URL is added (see data/projects.ts).
-        <div className="signal-grid grid aspect-video w-full place-items-center bg-[linear-gradient(150deg,color-mix(in_srgb,var(--brand)_14%,transparent),transparent)]">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <span className="grid size-12 place-items-center rounded-full border border-border-strong bg-surface text-brand-soft">
-              <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </span>
-            <span className="font-mono text-[0.65rem] uppercase tracking-wider text-muted">
-              walkthrough coming soon
-            </span>
-          </div>
-        </div>
+        // No Loom URL yet — play a synthetic "build replay" of the automation.
+        <BuildReplay project={project} index={index} />
       )}
       <div className="p-5">
         <span className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-brand-soft">
@@ -92,8 +82,8 @@ export function WorkSection() {
           Watch a build — 2-min case studies
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {recent.map((project) => (
-            <LoomCard key={project.title} project={project} />
+          {recent.map((project, i) => (
+            <LoomCard key={project.title} project={project} index={i} />
           ))}
         </div>
       </div>

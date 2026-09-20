@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { navItems, socialLinks } from '../../data/site'
+import { ROUTES } from '../../lib/router'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 
@@ -7,9 +8,10 @@ type MobileMenuProps = {
   open: boolean
   onClose: () => void
   activeId: string
+  route: string
 }
 
-export function MobileMenu({ open, onClose, activeId }: MobileMenuProps) {
+export function MobileMenu({ open, onClose, activeId, route }: MobileMenuProps) {
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Lock scroll, trap focus, and restore focus on close.
@@ -89,26 +91,36 @@ export function MobileMenu({ open, onClose, activeId }: MobileMenuProps) {
 
         <nav className="mt-8 flex flex-col" aria-label="Mobile">
           {navItems.map((item) => {
-            const isActive = activeId === item.href.slice(1)
+            const isActive =
+              item.kind === 'route' ? route === item.href : route === ROUTES.home && activeId === item.href.slice(1)
+            const baseColor = item.accent
+              ? 'text-brand hover:text-brand'
+              : isActive
+                ? 'text-heading'
+                : 'text-muted hover:text-heading'
             return (
               <a
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                aria-current={isActive ? 'true' : undefined}
-                className={`flex items-center justify-between border-b border-border py-4 font-display text-2xl transition-colors ${
-                  isActive ? 'text-heading' : 'text-muted hover:text-heading'
-                }`}
+                aria-current={isActive ? 'page' : undefined}
+                className={`flex items-center justify-between border-b border-border py-4 font-display text-2xl transition-colors ${baseColor}`}
               >
                 {item.label}
-                {isActive && <span className="size-1.5 rounded-full bg-brand" />}
+                {item.accent ? (
+                  <span aria-hidden="true" className="text-brand">
+                    →
+                  </span>
+                ) : (
+                  isActive && <span className="size-1.5 rounded-full bg-brand" />
+                )}
               </a>
             )
           })}
         </nav>
 
         <div className="mt-auto pt-8">
-          <Button href="#contact" size="lg" withArrow onClick={onClose} className="w-full">
+          <Button href={ROUTES.contact} size="lg" withArrow onClick={onClose} className="w-full">
             Start a project
           </Button>
           <div className="mt-6 flex items-center gap-3">

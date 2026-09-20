@@ -251,6 +251,30 @@ a {
 }
 .anim-bar { animation: anim-bar 2.4s ease-in-out infinite; transform-origin: bottom; }
 
+/* web — a render line sweeping down the page */
+@keyframes anim-scan {
+  0% { top: -22%; opacity: 0; }
+  15%, 85% { opacity: 1; }
+  100% { top: 104%; opacity: 0; }
+}
+.anim-scan { animation: anim-scan 2.3s ease-in-out infinite; }
+
+/* api — request out, response back, crossing on offset tracks */
+@keyframes anim-req {
+  0% { left: 24%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: 70%; opacity: 0; }
+}
+.anim-req { animation: anim-req 2.4s ease-in-out infinite; }
+@keyframes anim-res {
+  0% { left: 70%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: 24%; opacity: 0; }
+}
+.anim-res { animation: anim-res 2.4s ease-in-out infinite; animation-delay: 1.2s; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .marquee-track,
@@ -260,7 +284,10 @@ a {
   .live-dot,
   .anim-travel,
   .anim-fill,
-  .anim-bar {
+  .anim-bar,
+  .anim-scan,
+  .anim-req,
+  .anim-res {
     animation: none;
   }
 }

@@ -1,11 +1,15 @@
 /*
- * RECENT WORK — powers the "last 3 shipped" live feed (#15) and the Loom
- * case-study cards (#18). Keep this list fresh (newest first) so the feed
- * reads as a live, busy operation.
+ * RECENT WORK — powers the "last 3 shipped" live feed (#15) and the case-study
+ * cards (#18). Keep this list fresh (newest first) so the feed reads as a live,
+ * busy operation.
  *
  * TODO: replace with real projects. Set `loomUrl` to a Loom share URL
- * (https://www.loom.com/share/XXXX) to embed the walkthrough video.
+ * (https://www.loom.com/share/XXXX) to embed a real walkthrough video; until
+ * then each card auto-plays a unique "build replay" chosen by `replayKind`.
  */
+
+/** Which animated build-replay scene a card plays (one distinct scene each). */
+export type ReplayKind = 'triage' | 'dashboard' | 'extract'
 
 export type Project = {
   title: string
@@ -19,6 +23,8 @@ export type Project = {
   stack: string[]
   /** Loom share URL for the case-study walkthrough (optional) */
   loomUrl?: string
+  /** The build-replay scene this card animates when there's no Loom video. */
+  replayKind: ReplayKind
 }
 
 export const projects: Project[] = [
@@ -31,6 +37,7 @@ export const projects: Project[] = [
     buildTime: '3 weeks',
     shipped: 'this week',
     stack: ['Node.js', 'ATS API', 'OpenAI', 'Slack'],
+    replayKind: 'triage',
   },
   {
     title: 'Automated client reporting',
@@ -41,6 +48,7 @@ export const projects: Project[] = [
     buildTime: '2 weeks',
     shipped: '1 week ago',
     stack: ['Python', 'Meta + GA APIs', 'PDF', 'Email'],
+    replayKind: 'dashboard',
   },
   {
     title: 'Invoice intake agent',
@@ -51,6 +59,7 @@ export const projects: Project[] = [
     buildTime: '4 weeks',
     shipped: '2 weeks ago',
     stack: ['OCR', 'LLM', 'QuickBooks', 'Webhooks'],
+    replayKind: 'extract',
   },
   {
     title: 'Instant lead responder',
@@ -61,5 +70,6 @@ export const projects: Project[] = [
     buildTime: '2 weeks',
     shipped: '3 weeks ago',
     stack: ['Twilio', 'LLM', 'CRM', 'Zapier'],
+    replayKind: 'triage',
   },
 ]

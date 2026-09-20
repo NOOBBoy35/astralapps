@@ -1,20 +1,33 @@
 import { useEffect, useState } from 'react'
 import type { ThemeMode } from '../../App'
 import { navItems } from '../../data/site'
+import { ROUTES } from '../../lib/router'
 import { useScrollSpy } from '../../hooks/useScrollSpy'
 import { Button } from '../ui/Button'
 import { Logo } from '../ui/Logo'
 import { ThemeToggle } from '../ui/ThemeToggle'
 import { MobileMenu } from './MobileMenu'
 
-const spyIds = ['hero', ...navItems.map((item) => item.href.slice(1))]
+// Scroll-spy only tracks the in-page (anchor) sections that live on the home page.
+const spyIds = [
+  'hero',
+  ...navItems.filter((item) => item.kind === 'anchor').map((item) => item.href.slice(1)),
+]
+
+// Standout brand-violet pill for the dedicated Pricing / Contact pages, so they
+// don't blend in with the muted anchor links.
+const accentLink =
+  'text-brand bg-[color-mix(in_srgb,var(--brand)_10%,transparent)] hover:bg-[color-mix(in_srgb,var(--brand)_18%,transparent)]'
+const accentLinkActive =
+  'text-brand bg-[color-mix(in_srgb,var(--brand)_16%,transparent)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--brand)_45%,transparent)]'
 
 type HeaderProps = {
   theme: ThemeMode
   onThemeChange: (theme: ThemeMode) => void
+  route: string
 }
 
-export function Header({ theme, onThemeChange }: HeaderProps) {
+export function Header({ theme, onThemeChange, route }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const activeId = useScrollSpy(spyIds)
@@ -51,7 +64,24 @@ export function Header({ theme, onThemeChange }: HeaderProps) {
 
           <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
             {navItems.map((item) => {
-              const isActive = activeId === item.href.slice(1)
+              const isActive =
+                item.kind === 'route' ? route === item.href : route === ROUTES.home && activeId === item.href.slice(1)
+
+              if (item.accent) {
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                      isActive ? accentLinkActive : accentLink
+                    }`}
+                  >
+                    {item.label}
+                  </a>
+                )
+              }
+
               return (
                 <a
                   key={item.href}
@@ -72,7 +102,7 @@ export function Header({ theme, onThemeChange }: HeaderProps) {
 
           <div className="flex items-center gap-2">
             <div className="hidden sm:block">
-              <Button href="#contact" withArrow>
+              <Button href={ROUTES.contact} withArrow>
                 Start a project
               </Button>
             </div>
@@ -97,7 +127,12 @@ export function Header({ theme, onThemeChange }: HeaderProps) {
         </div>
       </header>
 
-      <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} activeId={activeId} />
+      <MobileMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        activeId={activeId}
+        route={route}
+      />
     </>
   )
 }

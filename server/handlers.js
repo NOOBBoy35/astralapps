@@ -1,4 +1,4 @@
-import { generateAudit, generateBlueprint, generateScope } from './lib/anthropic.js'
+import { generateAudit, generateBlueprint, generateScope } from './lib/ai.js'
 import { getClientIp, readJsonBody, sendJson } from './lib/http.js'
 import { checkRateLimit } from './lib/rateLimit.js'
 

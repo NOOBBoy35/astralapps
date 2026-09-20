@@ -2,22 +2,10 @@ import { useEffect, useState } from 'react'
 import { IndustryProvider } from './context/IndustryContext'
 import { Header } from './components/layout/Header'
 import { Footer } from './components/layout/Footer'
-import { HeroSection } from './components/sections/HeroSection'
-import { MetricsStrip } from './components/sections/MetricsStrip'
-import { BeforeAfterSection } from './components/sections/BeforeAfterSection'
-import { GraveyardSection } from './components/sections/GraveyardSection'
-import { TimelineSection } from './components/sections/TimelineSection'
-import { ServicesSection } from './components/sections/ServicesSection'
-import { BusinessAuditSection } from './components/sections/BusinessAuditSection'
-import { WorkSection } from './components/sections/WorkSection'
-import { TechMarquee } from './components/sections/TechMarquee'
-import { ProcessSection } from './components/sections/ProcessSection'
-import { RoiSection } from './components/sections/RoiSection'
-import { PricingSection } from './components/sections/PricingSection'
-import { BlueprintWizardSection } from './components/sections/BlueprintWizardSection'
-import { FaqSection } from './components/sections/FaqSection'
-import { RefusalSection } from './components/sections/RefusalSection'
-import { ContactSection } from './components/sections/ContactSection'
+import { HomePage } from './components/pages/HomePage'
+import { PricingPage } from './components/pages/PricingPage'
+import { ContactPage } from './components/pages/ContactPage'
+import { ROUTES, useLinkInterceptor, useRoute } from './lib/router'
 
 export type ThemeMode = 'dark' | 'light'
 
@@ -28,6 +16,8 @@ function getInitialTheme(): ThemeMode {
 
 function App() {
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme)
+  const route = useRoute()
+  useLinkInterceptor()
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -38,32 +28,27 @@ function App() {
     }
   }, [theme])
 
+  // Keep the browser tab title in step with the current page.
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      [ROUTES.pricing]: 'Pricing — AstralApps',
+      [ROUTES.contact]: 'Contact — AstralApps',
+    }
+    document.title = titles[route] ?? 'AstralApps — AI automation studio'
+  }, [route])
+
   return (
     <IndustryProvider>
       <div className="relative min-h-screen text-text">
-        <Header theme={theme} onThemeChange={setTheme} />
+        <Header theme={theme} onThemeChange={setTheme} route={route} />
         <main>
-          {/* Hook — the site is the demo */}
-          <HeroSection />
-          <MetricsStrip />
-          {/* Story */}
-          <BeforeAfterSection />
-          <GraveyardSection />
-          <TimelineSection />
-          {/* Capability + interactive proof */}
-          <ServicesSection />
-          <BusinessAuditSection />
-          <WorkSection />
-          <TechMarquee />
-          <ProcessSection />
-          {/* Conversion */}
-          <RoiSection />
-          <PricingSection />
-          <BlueprintWizardSection />
-          {/* Trust + close */}
-          <FaqSection />
-          <RefusalSection />
-          <ContactSection />
+          {route === ROUTES.pricing ? (
+            <PricingPage />
+          ) : route === ROUTES.contact ? (
+            <ContactPage />
+          ) : (
+            <HomePage />
+          )}
         </main>
         <Footer />
       </div>

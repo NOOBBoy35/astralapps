@@ -23,24 +23,23 @@ Then fill in the keys below (each goes in `.env`). **Restart `npm run dev` after
 
 ---
 
-## 1. Anthropic API key — makes the AI features live ⭐ most important
+## 1. Gemini API key — makes the AI features live ⭐ most important
 
 Powers the **Live Automation Builder**, **Instant Business Audit**, and **Blueprint Wizard**.
-Until set, those show a labeled "demo preview".
+Until set, those show a labeled "demo preview". Uses Google Gemini — it has a **free tier**.
 
-1. Go to **https://console.anthropic.com** and sign in (or sign up).
-2. Add a little credit: **Settings → Billing → Add credits** (a few dollars lasts a long time — the site defaults to Claude Haiku, ~$1 per million input tokens).
-3. **Settings → API Keys → Create Key**. Name it "astralapps", copy it (starts with `sk-ant-...`).
-4. Paste it into `.env`:
+1. Go to **https://aistudio.google.com/apikey** and sign in with a Google account.
+2. **Create API key**, copy it.
+3. Paste it into `.env`:
    ```
-   ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxx
+   GEMINI_API_KEY=your-key-here
    ```
-5. (Optional) For higher-quality output at higher cost, change the model:
+4. (Optional) change the model (default is fast + free-tier friendly):
    ```
-   ANTHROPIC_MODEL=claude-opus-4-8
+   GEMINI_MODEL=gemini-flash-latest
    ```
 
-> The key lives **server-side only** — it's never sent to the browser.
+> The key lives **server-side only** — it's never sent to the browser, and `.env` is gitignored.
 
 ## 2. Formspree — makes the contact form actually send
 
@@ -104,7 +103,7 @@ npm start          # serves /dist + /api on PORT (default 8080)
 
 On Hostinger (VPS or Node.js hosting):
 1. Upload the project (or `git clone`), run `npm ci` then `npm run build`.
-2. Set environment variables (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `PORT`) in the Hostinger panel, or keep them in `.env`.
+2. Set environment variables (`GEMINI_API_KEY`, `GEMINI_MODEL`, `PORT`) in the Hostinger panel, or keep them in `.env`.
 3. Start the app with `npm start` (point Hostinger's Node app entry at `server/index.js`).
 
 That's it — the same server handles the website and the live AI endpoints.

@@ -35,14 +35,21 @@ export const site = {
   formEndpoint: import.meta.env.VITE_FORMSPREE_ENDPOINT ?? '',
 } as const
 
-export type NavItem = { label: string; href: string }
+export type NavItem = {
+  label: string
+  href: string
+  /** 'anchor' scrolls within the home page; 'route' navigates to its own page. */
+  kind: 'anchor' | 'route'
+  /** Give the link a standout brand color in the nav (used for the dedicated pages). */
+  accent?: boolean
+}
 
 export const navItems: NavItem[] = [
-  { label: 'Services', href: '#services' },
-  { label: 'Work', href: '#work' },
-  { label: 'Pricing', href: '#pricing' },
-  { label: 'FAQ', href: '#faq' },
-  { label: 'Contact', href: '#contact' },
+  { label: 'Services', href: '#services', kind: 'anchor' },
+  { label: 'Work', href: '#work', kind: 'anchor' },
+  { label: 'FAQ', href: '#faq', kind: 'anchor' },
+  { label: 'Pricing', href: '/pricing', kind: 'route', accent: true },
+  { label: 'Contact', href: '/contact', kind: 'route', accent: true },
 ]
 
 export type SocialLink = {

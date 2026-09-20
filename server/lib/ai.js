@@ -1,68 +1,91 @@
-import Anthropic from '@anthropic-ai/sdk'
-
 /*
- * AI engines behind the three live features:
+ * AI engines behind the three live features, powered by the Google Gemini API:
  *   - generateBlueprint  → Live Automation Builder (#1)
  *   - generateAudit      → Instant Business Audit (#2)
  *   - generateScope      → Automation Blueprint wizard (#4)
  *
- * All use forced tool use so the model always returns valid JSON, and all fall
- * back to a believable mock when ANTHROPIC_API_KEY is unset (so the UI works in
- * dev / before launch). Model defaults to claude-haiku-4-5 (fast + cheap for a
- * live per-visitor demo); set ANTHROPIC_MODEL=claude-opus-4-8 for top quality.
+ * Uses Gemini structured output (responseMimeType: application/json + a schema)
+ * so the model always returns valid JSON. Falls back to a believable mock when
+ * GEMINI_API_KEY is unset, so the UI works in dev / before launch.
+ *
+ * Model defaults to gemini-flash-latest (fast + free-tier-friendly). Override
+ * with GEMINI_MODEL.
  */
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5'
+const MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest'
+const ENDPOINT = (model) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
 
-/** @type {Anthropic | null} */
-let client = null
-function getClient() {
-  if (!process.env.ANTHROPIC_API_KEY) return null
-  if (!client) client = new Anthropic({ timeout: 30000, maxRetries: 1 })
-  return client
-}
+/** Single structured-output Gemini call → parsed JSON object (or null if no key). */
+async function runJson({ system, user, schema, maxTokens = 1024 }) {
+  const key = process.env.GEMINI_API_KEY
+  if (!key) return null
 
-/** Run one forced-tool-use call and return the tool input object. */
-async function runTool({ system, user, tool, maxTokens = 1200 }) {
-  const anthropic = getClient()
-  if (!anthropic) return null
-  const message = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: maxTokens,
-    system,
-    tools: [tool],
-    tool_choice: { type: 'tool', name: tool.name },
-    messages: [{ role: 'user', content: user }],
-  })
-  const block = message.content.find((b) => b.type === 'tool_use')
-  return block ? block.input : null
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 30000)
+  let response
+  try {
+    response = await fetch(ENDPOINT(MODEL), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-goog-api-key': key },
+      signal: controller.signal,
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts: [{ text: user }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: schema,
+          maxOutputTokens: maxTokens,
+          // Skip extended thinking for these quick structured extractions.
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+    })
+  } finally {
+    clearTimeout(timer)
+  }
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    console.error('[gemini] error', response.status, detail.slice(0, 400))
+    throw Object.assign(new Error('The AI service had a problem. Please try again.'), { statusCode: 502 })
+  }
+
+  const data = await response.json()
+  const text = (data?.candidates?.[0]?.content?.parts || [])
+    .map((part) => part.text)
+    .filter(Boolean)
+    .join('')
+
+  if (!text) throw Object.assign(new Error('Could not generate a response. Please try again.'), { statusCode: 502 })
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw Object.assign(new Error('Could not parse the AI response. Please try again.'), { statusCode: 502 })
+  }
 }
 
 /* ───────────────────────── Automation Builder (#1) ───────────────────────── */
 
-const blueprintTool = {
-  name: 'emit_blueprint',
-  description: 'Return a concrete, buildable automation blueprint for the described manual task.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      title: { type: 'string', description: 'Short, specific name for the automation' },
-      summary: { type: 'string', description: 'One or two plain-English sentences on what it does' },
-      trigger: { type: 'string', description: 'The event that kicks the automation off' },
-      steps: { type: 'array', items: { type: 'string' }, description: '3 to 6 ordered steps' },
-      tools: { type: 'array', items: { type: 'string' }, description: 'Real tools / integrations involved' },
-      hoursSavedPerWeek: { type: 'number', description: 'Grounded estimate of hours saved per week' },
-      complexity: { type: 'string', enum: ['Simple', 'Moderate', 'Advanced'] },
-      estimatedCostUsd: {
-        type: 'object',
-        properties: { min: { type: 'number' }, max: { type: 'number' } },
-        required: ['min', 'max'],
-        additionalProperties: false,
-      },
+const blueprintSchema = {
+  type: 'OBJECT',
+  properties: {
+    title: { type: 'STRING' },
+    summary: { type: 'STRING' },
+    trigger: { type: 'STRING' },
+    steps: { type: 'ARRAY', items: { type: 'STRING' } },
+    tools: { type: 'ARRAY', items: { type: 'STRING' } },
+    hoursSavedPerWeek: { type: 'NUMBER' },
+    complexity: { type: 'STRING', enum: ['Simple', 'Moderate', 'Advanced'] },
+    estimatedCostUsd: {
+      type: 'OBJECT',
+      description: 'Rough ONE-TIME cost to build this automation, in USD (typically a few thousand dollars — not the monthly running cost).',
+      properties: { min: { type: 'NUMBER' }, max: { type: 'NUMBER' } },
+      required: ['min', 'max'],
     },
-    required: ['title', 'summary', 'trigger', 'steps', 'tools', 'hoursSavedPerWeek', 'complexity', 'estimatedCostUsd'],
-    additionalProperties: false,
   },
+  required: ['title', 'summary', 'trigger', 'steps', 'tools', 'hoursSavedPerWeek', 'complexity', 'estimatedCostUsd'],
+  propertyOrdering: ['title', 'summary', 'trigger', 'steps', 'tools', 'hoursSavedPerWeek', 'complexity', 'estimatedCostUsd'],
 }
 
 export async function generateBlueprint({ task, industry }) {
@@ -72,15 +95,18 @@ export async function generateBlueprint({ task, industry }) {
   }
 
   const industryLine = industry ? ` The visitor runs a ${industry}.` : ''
-  const input = await runTool({
+  const input = await runJson({
     system:
       'You are an automation architect at AstralApps, an AI automation studio. A potential client ' +
       'describes a manual task their team does every week. Produce a concrete, realistic automation ' +
       'blueprint they could actually build. Be specific about the trigger, the steps, and the real ' +
       'tools (Slack, HubSpot, Gmail, QuickBooks, Zapier/Make, OpenAI, Airtable, Twilio, etc.). Keep ' +
-      'the hours-saved and cost estimates grounded and honest — never inflate them.' + industryLine,
+      'the hours-saved estimate grounded and honest. estimatedCostUsd is the rough ONE-TIME cost to ' +
+      'BUILD this automation in USD — usually a few thousand dollars, not the monthly running cost.' +
+      industryLine,
     user: `Manual task: ${cleanTask}`,
-    tool: blueprintTool,
+    schema: blueprintSchema,
+    maxTokens: 1024,
   })
 
   if (!input) return mockBlueprint(cleanTask)
@@ -89,33 +115,28 @@ export async function generateBlueprint({ task, industry }) {
 
 /* ───────────────────────── Business Audit (#2) ───────────────────────── */
 
-const auditTool = {
-  name: 'emit_audit',
-  description: 'Return an automation-opportunities report for a business.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      company: { type: 'string', description: 'Best guess at the company / brand name' },
-      summary: { type: 'string', description: 'One sentence on what the business appears to do' },
-      opportunities: {
-        type: 'array',
-        description: '3 to 5 specific workflows this business likely does manually',
-        items: {
-          type: 'object',
-          properties: {
-            title: { type: 'string' },
-            description: { type: 'string', description: 'Why it is likely manual and how to automate it' },
-            hoursPerWeek: { type: 'number', description: 'Estimated manual hours / week' },
-            tools: { type: 'array', items: { type: 'string' } },
-          },
-          required: ['title', 'description', 'hoursPerWeek', 'tools'],
-          additionalProperties: false,
+const auditSchema = {
+  type: 'OBJECT',
+  properties: {
+    company: { type: 'STRING' },
+    summary: { type: 'STRING' },
+    opportunities: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          title: { type: 'STRING' },
+          description: { type: 'STRING' },
+          hoursPerWeek: { type: 'NUMBER' },
+          tools: { type: 'ARRAY', items: { type: 'STRING' } },
         },
+        required: ['title', 'description', 'hoursPerWeek', 'tools'],
+        propertyOrdering: ['title', 'description', 'hoursPerWeek', 'tools'],
       },
     },
-    required: ['company', 'summary', 'opportunities'],
-    additionalProperties: false,
   },
+  required: ['company', 'summary', 'opportunities'],
+  propertyOrdering: ['company', 'summary', 'opportunities'],
 }
 
 async function fetchSiteText(rawUrl) {
@@ -125,7 +146,6 @@ async function fetchSiteText(rawUrl) {
   } catch {
     return ''
   }
-  // basic SSRF guard
   const host = url.hostname
   if (!/^https?:$/.test(url.protocol)) return ''
   if (host === 'localhost' || host.endsWith('.local') || /^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(host)) {
@@ -160,21 +180,21 @@ export async function generateAudit({ url }) {
     throw Object.assign(new Error('Please enter your website URL.'), { statusCode: 400 })
   }
 
-  if (!getClient()) return mockAudit(cleanUrl)
+  if (!process.env.GEMINI_API_KEY) return mockAudit(cleanUrl)
 
   const siteText = await fetchSiteText(cleanUrl)
   const context = siteText
     ? `Website content:\n${siteText}`
     : `I could not fetch the page. Infer what you can from the URL itself: ${cleanUrl}`
 
-  const input = await runTool({
+  const input = await runJson({
     system:
       'You are an automation consultant at AstralApps. Given a company website, identify 3-5 specific ' +
       'workflows the business is most likely doing manually, and how AI/automation would handle each. ' +
       'Be concrete and specific to this business, not generic. Estimate manual hours/week honestly.',
     user: `Audit this business for automation opportunities.\n${context}`,
-    tool: auditTool,
-    maxTokens: 1500,
+    schema: auditSchema,
+    maxTokens: 1300,
   })
 
   if (!input) return mockAudit(cleanUrl)
@@ -183,31 +203,25 @@ export async function generateAudit({ url }) {
 
 /* ───────────────────────── Blueprint Wizard (#4) ───────────────────────── */
 
-const scopeTool = {
-  name: 'emit_scope',
-  description: 'Return a concrete project scope document for an automation engagement.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      summary: { type: 'string', description: 'One or two sentences framing the recommended project' },
-      deliverables: { type: 'array', items: { type: 'string' }, description: '3 to 5 concrete deliverables' },
-      timelineWeeks: {
-        type: 'object',
-        properties: { min: { type: 'number' }, max: { type: 'number' } },
-        required: ['min', 'max'],
-        additionalProperties: false,
-      },
-      priceRangeUsd: {
-        type: 'object',
-        properties: { min: { type: 'number' }, max: { type: 'number' } },
-        required: ['min', 'max'],
-        additionalProperties: false,
-      },
-      firstStep: { type: 'string', description: 'The very first step to kick the project off' },
+const scopeSchema = {
+  type: 'OBJECT',
+  properties: {
+    summary: { type: 'STRING' },
+    deliverables: { type: 'ARRAY', items: { type: 'STRING' } },
+    timelineWeeks: {
+      type: 'OBJECT',
+      properties: { min: { type: 'NUMBER' }, max: { type: 'NUMBER' } },
+      required: ['min', 'max'],
     },
-    required: ['summary', 'deliverables', 'timelineWeeks', 'priceRangeUsd', 'firstStep'],
-    additionalProperties: false,
+    priceRangeUsd: {
+      type: 'OBJECT',
+      properties: { min: { type: 'NUMBER' }, max: { type: 'NUMBER' } },
+      required: ['min', 'max'],
+    },
+    firstStep: { type: 'STRING' },
   },
+  required: ['summary', 'deliverables', 'timelineWeeks', 'priceRangeUsd', 'firstStep'],
+  propertyOrdering: ['summary', 'deliverables', 'timelineWeeks', 'priceRangeUsd', 'firstStep'],
 }
 
 export async function generateScope({ industry, teamSize, timeDrain, urgency }) {
@@ -216,7 +230,7 @@ export async function generateScope({ industry, teamSize, timeDrain, urgency }) 
     throw Object.assign(new Error('Tell us your biggest time-drain so we can scope it.'), { statusCode: 400 })
   }
 
-  const input = await runTool({
+  const input = await runJson({
     system:
       'You are a delivery lead at AstralApps, an AI automation studio. From a short intake, produce a ' +
       'realistic project scope a client could act on: deliverables, a timeline in weeks, a rough price ' +
@@ -224,7 +238,8 @@ export async function generateScope({ industry, teamSize, timeDrain, urgency }) 
     user:
       `Industry: ${industry || 'unspecified'}\nTeam size: ${teamSize || 'unspecified'}\n` +
       `Biggest time-drain: ${drain}\nUrgency: ${urgency || 'unspecified'}`,
-    tool: scopeTool,
+    schema: scopeSchema,
+    maxTokens: 1024,
   })
 
   if (!input) return mockScope(drain)

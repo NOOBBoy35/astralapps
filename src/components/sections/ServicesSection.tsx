@@ -55,13 +55,14 @@ const serviceIcons: Record<Service['icon'], ReactNode> = {
   ),
 }
 
+// One distinct demo per service — no two share an animation.
 const demoFor: Record<Service['icon'], DemoKind> = {
   ai: 'fill',
-  web: 'bars',
+  web: 'browser',
   automation: 'route',
   chat: 'chat',
   dashboard: 'bars',
-  api: 'route',
+  api: 'sync',
 }
 
 export function ServicesSection() {

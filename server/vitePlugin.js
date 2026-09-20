@@ -12,7 +12,7 @@ export function apiPlugin() {
     name: 'astralapps-api',
     configResolved(config) {
       const env = loadEnv(config.mode, process.cwd(), '')
-      for (const key of ['ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL']) {
+      for (const key of ['GEMINI_API_KEY', 'GEMINI_MODEL']) {
         if (env[key] && !process.env[key]) process.env[key] = env[key]
       }
     },
